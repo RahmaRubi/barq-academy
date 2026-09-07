@@ -126,6 +126,24 @@ NGINX reported `upstream timed out` for both `172.23.0.11:8080` and `172.23.0.12
 **19 succeeded**
 
 7. Build an incident timeline using evidence from access, error AND application logs.
+11:05 ──► Backend connectivity problem
+          └─ 502 / connection refused / .12
+
+11:09 ──► 502 incident ends
+
+11:12 ──► Application dependency problems
+          └─ Redis timeout → 503
+          └─ PostgreSQL invalid password also appears
+
+11:25 ──► Upstream response-time problem
+          └─ /records → 504
+          └─ NGINX timeout
+          └─ App eventually completes with 200
+
+11:26:47 ─► 504 incident ends
+
+
+
 8. Show one correlated failed request and one successful request. Include IDs and timestamps.
 
 9. Which errors appear to be proxy/connectivity issues versus dependency/application issues? What proves it?
