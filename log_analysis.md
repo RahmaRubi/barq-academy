@@ -114,7 +114,7 @@ NGINX reported `upstream timed out` for both `172.23.0.11:8080` and `172.23.0.12
 
 
 5. What are the median and p95 client latencies? State the percentile method and units.
-
+The median client latency is 0.051 seconds and the p95 is 0.120 seconds. Latency is measured using the request_time field in seconds. The p95 uses the nearest-rank percentile method. Each unique request_id is counted once.
 
 
 
@@ -146,6 +146,25 @@ NGINX reported `upstream timed out` for both `172.23.0.11:8080` and `172.23.0.12
 
 8. Show one correlated failed request and one successful request. Include IDs and timestamps.
 
+**Failed request — 503**
+* **Request ID:** `lab-000292`
+* **Timestamp:** `2026-08-20T11:12:09.524Z`
+* **Instance:** `app-02`
+* **Evidence:** `application.log` reports a Redis `TimeoutError` for this request. One millisecond later, the same `request_id` is logged with HTTP status `503`.
+* **Correlation:** The same request ID and nearly identical timestamps connect the Redis dependency failure to the HTTP 503 response.
+
+
+**Successful request — 200 after retry**
+* **Request ID:** `lab-000124`
+* **Timestamp:** `2026-08-20T11:05:07.620Z`
+* **Path:** `/ready`
+* **Evidence:** `access.log` shows `upstream_status="502, 200"` and `status=200`, with the request first sent to `172.23.0.12:8080` and then retried against `172.23.0.11:8080`.
+* **Correlation:** The same request ID tracks both upstream attempts and the final successful HTTP response.
+
+
+
+
+
 9. Which errors appear to be proxy/connectivity issues versus dependency/application issues? What proves it?
 **Error	          Category	                 Evidence**
 502	        Proxy / connectivity	         NGINX connect() failed (111: Connection refused) to 172.23.0.12:8080
@@ -159,8 +178,4 @@ error.log identifies NGINX ↔ upstream communication problems, while applicatio
 
 
 10. What do the logs not prove? What would you check next in a running environment?
-
-## Commands / scripts
-## Results
-## Timeline and correlated examples
-## Conclusions and limits
+The logs can prove that requests failed and, when correlated across access and error logs, can provide evidence for the immediate cause, such as a connection refusal. However, they do not always prove what is happening behind the scenes or the underlying root cause. Such as why the backend stopped accepting connections. In a running environment, I would check the backend/container status, application logs, health checks, and system/dependency metrics to identify the root cause.
