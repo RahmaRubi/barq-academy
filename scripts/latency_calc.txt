@@ -1,0 +1,32 @@
+jq -r '
+  select(.request_id != null)
+  | [.request_id, .request_time]
+  | @tsv
+' logs/access.log |
+sort -k1,1 -u |
+awk '
+{
+    latencies[++n] = $2
+}
+END {
+    for (i = 1; i <= n; i++)
+        for (j = i + 1; j <= n; j++)
+            if (latencies[i] > latencies[j]) {
+                tmp = latencies[i]
+                latencies[i] = latencies[j]
+                latencies[j] = tmp
+            }
+
+    median = (n % 2) ? latencies[(n+1)/2] \
+                      : (latencies[n/2] + latencies[n/2+1]) / 2
+
+    # Nearest-rank p95
+    rank = int(0.95 * n)
+    if (0.95 * n > rank)
+        rank++
+
+    printf "Requests: %d\n", n
+    printf "Median: %.3f seconds\n", median
+    printf "p95: %.3f seconds\n", latencies[rank]
+}
+'
