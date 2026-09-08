@@ -214,6 +214,27 @@
 
 
 
+## Entry(6) - PostgreSQL connection failure -  2026-09-09- 12:50
+
+* **Symptom:** Flask could not connect to PostgreSQL.
+
+* **Failed connection test:**
+
+  ```bash
+  docker compose exec app-01 python -c "import psycopg; import os; psycopg.connect(os.getenv('DATABASE_URL'), connect_timeout=2); print('DB connection successful')"
+  ```
+
+  Result: `Connection refused` on port `5433`.
+
+* **Root cause:** `DATABASE_URL` used the wrong PostgreSQL port (`5433`). PostgreSQL listens on **5432 inside the Docker network**. The Compose mapping `127.0.0.1:15432:5432` exposes container port `5432` as host port `15432`; this host port is not used for container-to-container communication. The password was also incorrect.
+
+* **Fix:** Changed `DATABASE_URL` to use `postgres:5432` with the correct password, then recreated `app-01` and `app-02`.
+
+* **Retest:** Direct connection returned `DB connection successful`.
+
+* **Application verification:** `GET /records` returned `200 OK` with records retrieved from PostgreSQL.
+
+* **Related commit:** `fix: correct database connection configuration`
 
 
 
