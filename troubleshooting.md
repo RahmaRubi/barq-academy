@@ -38,8 +38,24 @@
 
 
 
+## Entry 2 / 2026-09-08
 
+* **Symptom:** application was not  reachable through the published url http://127.0.0.1:8080.
+* **Hypothesis:** Possible mismatch between Docker's published container port and Nginx's listening port.
+* **Command or test:** checked container status through `docker compose -p barq-assessment ps` and found app1, app2 healthy. however application cannot be reached. Therefore, Inspected `docker-compose.yml` and `nginx/nginx.conf`.
+* **Actual output:** Docker mapped `8080 → 81`, while Nginx was configured with `listen 80;`.
+* **Failed attempt and what changed your thinking:** The expected traffic path could not reach Nginx because nothing was listening on container port `81`.
+* **Root cause:** Docker and Nginx were configured to use different container ports.
+* **Fix:** Changed Nginx from `listen 80;` to `listen 81;`.
+* **Retest evidence:** Ran:
 
+  ```bash
+  docker compose exec nginx nginx -t
+  docker compose restart nginx
+  curl -v http://127.0.0.1:8080/
+  ```
+* **Related commit:** `fix: align nginx listening port with docker mapping`
+* **Remaining uncertainty:** 502 Bad Gateway
 
 
 
