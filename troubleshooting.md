@@ -1,6 +1,6 @@
 # Troubleshooting journal
 
-## Entry 1 / 2026-09-07
+## Entry(1) - health endpoint - 2026-09-06 - 1:09 AM
 
 * **Symptom:**
   `app-01` and `app-02` were running but `unhealthy`.
@@ -38,7 +38,7 @@
 
 
 
-## Entry 2 / 2026-09-08
+## Entry(2) - docker port mapping - 2026-09-08 - 6:07
 
 * **Symptom:** application was not  reachable through the published url http://127.0.0.1:8080.
 * **Hypothesis:** Possible mismatch between Docker's published container port and Nginx's listening port.
@@ -58,7 +58,7 @@
 
 
 
-## Entry 3 / 2026-09-08
+## Entry(3) -  app-01:8081 port fix - 2026-09-08 - 8:37
 
 * **Symptom:** Requests through Nginx return `502 Bad Gateway`.
 * **Hypothesis:** Nginx may be unable to connect to one or more upstream applications.
@@ -73,11 +73,11 @@
   docker compose exec nginx nginx -t
   docker compose restart nginx
   ```
-* **Related commit:** `fix: align nginx listening port with docker mapping`
+* **Related commit:** `fix: app-01 listening port with App-port`
 * **Remaining uncertainty:** Need to verify why the upstream applications are still return `502` with `Connection refused` on the configured ports.
 
 
-## Entry 4 / 2026-09-08 / 8:30
+## Entry(4) - bind application to 0.0.0.0 - 2026-09-08 - 9:30
 
 * **Symptom:** Requests through Nginx were still returning `502 Bad Gateway` with `Connection refused`, even after correcting the upstream application port to `8080`.
 
@@ -146,6 +146,70 @@
 * **Remaining uncertainty:** None. The application is now reachable through the Docker network and the published Nginx endpoint returns `200 OK`.
 
 
+
+
+## Entry(5) - Application Instance ID Misconfiguration - 2026-09-08 - 11:28
+
+* **Symptom:**
+  `app-02` was receiving requests, but its application logs reported `"instance_id": "app-01"`.
+
+* **Hypothesis:**
+  `app-02` was configured with the wrong `INSTANCE_ID` environment variable.
+
+* **Command or test:**
+
+  ```bash
+  for i in {1..10}; do curl -s http://127.0.0.1:8080/health; echo; done
+  ```
+
+  Then inspected both application logs:
+
+  ```bash
+  docker compose logs app-01 --tail=20
+  docker compose logs app-02 --tail=20
+  ```
+
+* **Actual output:**
+  Requests reached both application containers, but `app-02` logs contained:
+
+  ```json
+  "instance_id": "app-01"
+  ```
+
+* **Root cause:**
+  `app-02` had been configured with:
+
+  ```yaml
+  INSTANCE_ID: "app-01"
+  ```
+
+  instead of its own instance ID.
+
+* **Fix:**
+  Changed the `app-02` configuration to:
+
+  ```yaml
+  INSTANCE_ID: "app-02"
+  ```
+
+  Then recreated the container:
+
+  ```bash
+  docker compose up -d --force-recreate app-02
+  ```
+
+* **Retest evidence:**
+  Repeated the health requests and checked `app-02` logs to verify that requests were now associated with:
+
+  ```json
+  "instance_id": "app-02"
+  ```
+
+* **Related commit:**
+  `fix: correct app-02 instance identity`
+
+* **Remaining uncertainty:**
+  None regarding the instance ID configuration after successful retest.
 
 
 
