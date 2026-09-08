@@ -52,13 +52,29 @@
   ```bash
   docker compose exec nginx nginx -t
   docker compose restart nginx
-  curl -v http://127.0.0.1:8080/
   ```
 * **Related commit:** `fix: align nginx listening port with docker mapping`
-* **Remaining uncertainty:** 502 Bad Gateway
+* **Remaining uncertainty:** Docker now can connect to nginx on the appropiate port mapping, however response for http://127.0.0.1:8080 returns 502 bad Gateway which means nginx connected at least.
 
 
 
+## Entry 3 / 2026-09-08
+
+* **Symptom:** Requests through Nginx return `502 Bad Gateway`.
+* **Hypothesis:** Nginx may be unable to connect to one or more upstream applications.
+* **Command or test:** `docker compose logs nginx --tail=50`
+* **Actual output:** Nginx reports `connect() failed (111: Connection refused) while connecting to upstream` for `app-01:8081` and `app-02:8080`.
+* **Failed attempt and what changed your thinking:** `curl http://127.0.0.1:8080/` successfully reached Nginx but returned `502`, proving the public port/Nginx path works and the failure is downstream.
+* **Root cause:** The configured upstream application ports are refusing connections.
+* **Fix:** changed nginx server app-1 port to listen on port *8080*
+* **Retest evidence:** Ran:
+
+  ```bash
+  docker compose exec nginx nginx -t
+  docker compose restart nginx
+  ```
+* **Related commit:** `fix: align nginx listening port with docker mapping`
+* **Remaining uncertainty:** Need to verify why the upstream applications are still return `502` with `Connection refused` on the configured ports.
 
 
 
