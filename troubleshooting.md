@@ -214,7 +214,7 @@
 
 
 
-## Entry(6) - PostgreSQL connection failure -  2026-09-09- 12:50
+## Entry(6) - PostgreSQL connection failure -  2026-09-09 - 12:50 AM
 
 * **Symptom:** Flask could not connect to PostgreSQL.
 
@@ -236,6 +236,30 @@
 
 * **Related commit:** `fix: correct database connection configuration`
 
+
+
+
+
+
+## Entry 7 — Redis connection failure - 2026-09-09 - 1:01AM
+
+* **Symptom:** `GET /counter` returned `503 redis_unavailable`.
+* **Failed test:**
+
+  ```bash
+  curl -v http://127.0.0.1:8080/counter
+  ```
+* **Root cause:** `REDIS_URL` used the wrong Redis port for container-to-container communication.
+* **Fix:** Corrected the Redis port in `config/app.env` and recreated `app-01` and `app-02` to apply the updated environment.
+* **Retest:**
+
+  ```bash
+  curl -v http://127.0.0.1:8080/counter
+  ```
+
+  Result: `HTTP/1.1 200 OK` with `{"counter":1,...}`.
+* **Conclusion:** Flask successfully connected to Redis and executed the counter operation.
+* **Related commit:** `fix: correct redis connection configuration`
 
 
 
