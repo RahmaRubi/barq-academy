@@ -237,6 +237,8 @@
 * **Related commit:** `fix: correct database connection configuration`
 
 
+* **Remaining uncertainty:**
+  None
 
 
 
@@ -261,6 +263,24 @@
 * **Conclusion:** Flask successfully connected to Redis and executed the counter operation.
 * **Related commit:** `fix: correct redis connection configuration`
 
+* **Remaining uncertainty:**
+  None
+
+
+
+
+## Entry 8 — services appropriate host port - 2026-09-09 - 10:51 AM
+
+* **Symptom:** PostgreSQL and Redis had published host ports; requirement allows only NGINX on host port `8080`.
+* **Hypothesis:** Unnecessary `ports` mappings were exposing backend services to the host.
+* **Command or test:** Reviewed `ports` in `docker-compose.yml`.
+* **Actual output:** PostgreSQL → `15432:5432`, Redis → `16379:6379`, NGINX → `${PUBLIC_PORT:-8080}:81`.
+* **Failed attempt and what changed your thinking:** `127.0.0.1` limits access to the local host but still publishes the ports. The requirement says not to publish them.
+* **Root cause:** PostgreSQL and Redis had unnecessary host-port mappings.
+* **Fix:** Remove `ports` from PostgreSQL and Redis; set NGINX to `127.0.0.1:8080:81`.
+* **Retest evidence:** Verify with `docker compose ps`.
+* **Related commit:** `fix: services appropriate host port`
+* **Remaining uncertainty:** None after successful port verification.
 
 
 <!--
