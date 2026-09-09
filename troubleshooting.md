@@ -269,7 +269,7 @@
 
 
 
-## Entry 8 — services appropriate host port - 2026-09-09 - 10:51 AM
+## Entry 8 — services appropriate host port - 2026-09-09 - 10:51 pm
 
 * **Symptom:** PostgreSQL and Redis had published host ports; requirement allows only NGINX on host port `8080`.
 * **Hypothesis:** Unnecessary `ports` mappings were exposing backend services to the host.
@@ -281,6 +281,21 @@
 * **Retest evidence:** Verify with `docker compose ps`.
 * **Related commit:** `fix: services appropriate host port`
 * **Remaining uncertainty:** None after successful port verification.
+
+
+
+## Entry 9 — docker network containers- 2026-09-09 - 11:00pm
+
+* **Symptom:** NGINX was connected to both `frontend` and `backend`.
+* **Hypothesis:** NGINX has unnecessary access to the internal backend network.
+* **Command or test:** Reviewed service `networks` in `docker-compose.yml`.
+* **Actual output:** NGINX → `frontend, backend`; apps → `frontend, backend`; PostgreSQL/Redis → `backend`.
+* **Failed attempt and what changed your thinking:** `backend` is internal, but NGINX does not need to be connected to it.
+* **Root cause:** NGINX was incorrectly attached to `backend`.
+* **Fix:** Connect NGINX only to `frontend`.
+* **Retest evidence:** docker exec nginx nc -zv postgres 5432
+* **Related commit:** `fix: ngnix should not reach dbs`
+* **Remaining uncertainty:** None after confirming final network membership.
 
 
 <!--
