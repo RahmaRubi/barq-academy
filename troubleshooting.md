@@ -298,6 +298,34 @@
 * **Remaining uncertainty:** None after confirming final network membership.
 
 
+
+
+
+
+## Entry 10 — PostgreSQL volume - 2026-09-10 - 11:41pm
+
+* ****Symptom:**** PostgreSQL had a named volume configured, but it was mounted to `/var/lib/postgresql/backup` while the actual PostgreSQL data directory was `/var/lib/postgresql/data`.
+
+* ****Hypothesis:**** The named volume was not protecting the actual PostgreSQL database files from container recreation.
+
+* ****Command or test:**** `docker exec postgres psql -U barq_app -d barq_tasks -c "SHOW data_directory;"` and reviewed PostgreSQL volume mounts in `docker-compose.yml`.
+
+* ****Actual output:**** PostgreSQL reported `/var/lib/postgresql/data` as its data directory. The named `postgres-data` volume was mounted to `/var/lib/postgresql/backup`, while `/var/lib/postgresql/data` was mounted as `tmpfs`.
+
+* ****Failed attempt and what changed your thinking:**** The named volume existed, but it was mounted to a backup directory rather than PostgreSQL's actual data directory. This meant the presence of a named volume alone did not guarantee database persistence.
+
+* ****Root cause:**** `postgres-data` was mounted to the wrong directory, and the actual PostgreSQL data directory was using temporary `tmpfs` storage.
+
+* ****Fix:**** Mount `postgres-data` to `/var/lib/postgresql/data` and remove the `tmpfs` mount.
+
+* ****Retest evidence:**** Created a test table and data, recreated the PostgreSQL container with `docker compose up -d --force-recreate postgres`, then queried the test data again and confirmed it remained available.
+
+* ****Related commit:**** `fix: persist postgres data in named volume`
+
+* ****Remaining uncertainty:**** None after confirming the named volume is mounted at `/var/lib/postgresql/data` and the test data survives container recreation.
+
+
+
 <!--
 Keep chronological entries. Copy this block for each meaningful investigation.
 
