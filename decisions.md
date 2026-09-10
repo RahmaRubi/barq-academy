@@ -1,6 +1,6 @@
 # Technical decisions
 
-## Decision1
+## Decision1 - non necessity to persistant data
 
 - **Choice:** Keep Redis non-persistent (`--save "" --appendonly no`) and do not attach a persistent volume.
 
@@ -21,7 +21,7 @@
 
 
 
-## Decision2
+## Decision2 - restart application with unless-stopped
 
 - **Choice:** Use `restart: unless-stopped` for the Flask application containers.
 
@@ -40,6 +40,26 @@
 
 **Limit:** `unless-stopped` does not by itself provide high availability if both application instances fail or if the host itself becomes unavailable.
 
+
+
+
+## Decision3 — Run the application as a non-root user
+
+* **Choice:** Run the Flask application as the dedicated `app` user with UID 10001 instead of `root`.
+
+* **Why:** The application only needs to execute Python, read its application files, listen on port 8080, and connect to PostgreSQL and Redis. None of these operations require root privileges. Running as a dedicated non-root user follows the principle of least privilege and reduces the potential impact of an application compromise.
+
+* **Alternative:** Run the application as `root`, which is the default behavior when no runtime user is specified.
+
+* **Trade-off:** Non-root execution improves security but requires application files and any writable directories to have appropriate ownership and permissions. The application directory is therefore copied with ownership assigned to the `app` user.
+
+* **Evidence / commit:** The Dockerfile creates the `app` user with UID 10001 and sets `USER app` for runtime execution. Verification with `docker exec app-01 id` and `docker exec app-02 id` confirms `uid=10001(app)` while the application health and readiness endpoints remain functional.
+
+* **Production improvement:** Apply additional container hardening where compatible with the application, such as dropping unnecessary Linux capabilities, using a read-only root filesystem where possible, and enforcing resource and security policies at the orchestration level.
+
+* **Assumption:** The Flask application does not need to modify protected system files or bind to privileged ports below 1024.
+
+* **Limit:** Non-root execution reduces process privileges but does not by itself provide complete container security. Docker, the host, dependencies, application code, and network configuration still require appropriate security controls.
 
 
 

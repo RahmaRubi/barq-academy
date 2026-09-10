@@ -11,6 +11,38 @@
 
 
 
+## Entry 2  Application running with unnecessary root privileges
+
+* **Risk and evidence:** The Flask application containers were initially running as `root`. This was verified with `docker exec app-01 id`, which returned `uid=0(root) gid=0(root) groups=0(root)`. The Dockerfile already created a dedicated `app` user, but `USER root` caused the application to run as root at runtime.
+
+* **Impact:** If the application is compromised, running as root provides more privileges than the application requires and can increase the potential impact of an application-level compromise.
+
+* **Implemented fix / commit:** Configured the application containers to run as the dedicated non-root `app` user (UID 10001) by replacing `USER root` with `USER app` in the Dockerfile. Application files are owned by `app` using `COPY --chown=app:app`.
+  **Commit:** `security: unnecessary root privileges`
+
+* **Production follow-up:** Further container hardening can be considered, including dropping unnecessary Linux capabilities and using a read-only root filesystem where compatible with the application.
+
+* **How to verify:**
+
+  ```bash
+  docker exec app-01 id
+  docker exec app-02 id
+  curl http://127.0.0.1:8080/health
+  curl http://127.0.0.1:8080/ready
+  ```
+
+  Expected user:
+
+  ```text
+  uid=10001(app) gid=10001(app) groups=10001(app)
+  ```
+
+  The health and readiness endpoints should continue to return successfully.
+
+
+
+
+
 
 
 
