@@ -21,6 +21,24 @@
 
 
 
+## Decision2
+
+- **Choice:** Use `restart: unless-stopped` for the Flask application containers.
+
+- **Why:** Automatically recover app containers after unexpected crashes or host/Docker restarts, while still allowing intentional manual stops during testing and maintenance.
+
+- **Alternative:** Keep `restart: "no"` or use `restart: always`.
+
+- **Trade-off:** `unless-stopped` improves availability, but an unhealthy application process that remains running may not be restarted based on the healthcheck alone.
+
+- **Evidence / commit:** The policy is compatible with the required failure test: `docker stop app-01` intentionally stops the selected backend without immediately restarting it, allowing NGINX to continue serving through `app-02`. The container can then be restored with `docker start app-01`.
+**Related commit:** `fix: configure application restart policy`
+
+- **Production improvement:** Combine the restart policy with application health monitoring, alerting, resource limits, and orchestration/failover mechanisms for higher availability.
+
+**Assumption:** The application container should recover automatically from unexpected process/container failures, while intentional manual stops should remain stopped.
+
+**Limit:** `unless-stopped` does not by itself provide high availability if both application instances fail or if the host itself becomes unavailable.
 
 
 
