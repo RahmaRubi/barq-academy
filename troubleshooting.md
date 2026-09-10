@@ -326,6 +326,48 @@
 
 
 
+
+
+
+## Entry 11 — Redis Port Mismatch - 2026-09-11 - 12:15AM
+
+* ****Symptom:**** `/counter` returned `redis_unavailable`.
+
+* ****Hypothesis:**** The application was connecting to Redis on the wrong port.
+
+* ****Command or test:****
+
+  ```bash
+  docker exec redis redis-cli -p 6380 ping
+  docker exec redis redis-cli -p 6379 ping
+  ```
+
+* ****Actual output:****
+
+  ```text
+  6380 → Connection refused
+  6379 → PONG
+  ```
+
+* ****Failed attempt and what changed your thinking:**** Redis itself was healthy, so the issue was not a container failure. The port configuration was the next point of investigation.
+
+* ****Root cause:**** `REDIS_URL` configured the application to use port `6380`, while Redis was listening on its default port `6379`.
+
+* ****Fix:**** Updated `REDIS_URL` to `redis://redis:6379/0`. Redis was not exposed through a host port; `6379` remains internal to the Docker `backend` network.
+
+* ****Retest evidence:****
+
+  ```bash
+  curl http://127.0.0.1:8080/counter
+  ```
+
+  returned `counter: 1`, followed by `counter: 2`, confirming successful Redis connectivity.
+
+* ****Related commit:**** `fix: correct redis internal port`
+
+* ****Remaining uncertainty:**** None.
+
+
 <!--
 Keep chronological entries. Copy this block for each meaningful investigation.
 
