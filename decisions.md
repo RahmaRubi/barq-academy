@@ -66,6 +66,26 @@
 
 
 
+## Decision 4 — Base images and health checks
+
+* **Choice:** Use purpose-specific official base images for each service and use health-check tools already available in those images. The Flask application uses `python:3.12-slim-bookworm`; PostgreSQL uses `postgres:16-alpine`; Redis uses `redis:7.4-alpine`; and NGINX uses `nginx:1.28-alpine`. The images used from registries are pinned by digest.
+
+* **Why:** The Python slim image provides the Python runtime required by the Flask application without adding unnecessary operating-system packages. PostgreSQL, Redis and NGINX use their respective official lightweight images. Health checks use tools already available in the selected images: Python's standard-library `urllib` for the Flask `/health` endpoint, `pg_isready` for PostgreSQL, and `redis-cli ping` for Redis. This avoids adding extra packages only for health checking.
+
+* **Alternative:** Use larger general-purpose images or install additional utilities such as `curl` into the Flask image solely for health checks.
+
+* **Trade-off:** Slim/lightweight images reduce unnecessary packages and attack surface, but provide fewer debugging utilities. Using existing runtime tools keeps the image smaller and avoids unnecessary dependencies, while troubleshooting may require relying on logs or temporary diagnostic containers/tools.
+
+* **Evidence / commit:** The Compose health checks use `python`, `pg_isready`, and `redis-cli`, which are provided by the selected runtime images. The images are pinned by SHA256 digest in `docker-compose.yml`. The Flask health check uses `python -c` with `urllib`, so no additional `curl` dependency is required.
+  **Commit:** `decision: using official images health checks`
+
+* **Production improvement:** Regularly review and update pinned image digests, scan images for vulnerabilities, and validate health-check behavior after image updates. Additional diagnostic tooling should be added only when justified.
+
+* **Assumption:** The selected official images continue to provide the runtime and health-check utilities used by the Compose configuration.
+
+* **Limit:** Minimal images can make interactive debugging less convenient. Health checks also verify the specific condition they are designed for; for example, the Flask container health check verifies application liveness through `/health`, while dependency readiness is handled separately by `/ready`.
+
+
 
 
 
