@@ -2,6 +2,7 @@
 import time
 import subprocess
 import sys
+import json
 
 
 """Validate that the required BARQ services are running."""
@@ -34,8 +35,6 @@ def wait_for_http(url, timeout=30):
     return False
 
 
-
-
 def check_endpoint(path, expected_status=200):
     url = f"http://127.0.0.1:8080{path}"
 
@@ -55,6 +54,35 @@ def check_endpoint(path, expected_status=200):
     print(f"[FAIL] GET {path} returned {status}, expected {expected_status}")
     return 1
 
+
+
+def check_instance():
+    url = "http://127.0.0.1:8080/instance"
+
+    result = subprocess.run(
+        ["curl", "-s", "--max-time", "2", url],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print("[FAIL] GET /instance request failed")
+        return 1
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        print("[FAIL] GET /instance returned invalid JSON")
+        return 1
+
+    instance_id = data.get("instance_id")
+
+    if instance_id in {"app-01", "app-02"}:
+        print(f"[PASS] GET /instance identifies {instance_id}")
+        return 0
+
+    print(f"[FAIL] GET /instance returned invalid instance_id: {instance_id}")
+    return 1
 
 
 
@@ -90,8 +118,8 @@ def main():
     failed += check_endpoint("/")
     failed += check_endpoint("/health")
     failed += check_endpoint("/ready")
-  
-    
+    failed += check_instance()
+
         
     print()
     if failed == 0:
