@@ -368,6 +368,137 @@
 * ****Remaining uncertainty:**** None.
 
 
+
+
+
+
+## Entry 11 — Redis Port Mismatch - 2026-09-11 - 3:30pm
+
+* **Symptom:**
+  When `app-01` was stopped, the failure test reported failed requests instead of continuing to serve traffic through `app-02`.
+
+* **Hypothesis:**
+  NGINX might not be failing over to the second upstream when the first backend becomes unavailable. The failure test client timeout might also be too short for NGINX to complete the failover.
+
+* **Command or test:**
+
+  ```bash
+  docker stop app-01
+  python3 failure_test.py
+  ```
+
+  NGINX configuration was also reviewed, especially:
+
+  ```nginx
+  proxy_next_upstream
+  max_fails
+  fail_timeout
+  ```
+
+* **Actual output:**
+  The first failure-test attempt produced:
+
+  ```text
+  During failure: 5 successful requests, 5 failed requests
+  ```
+
+  A manual test with `app-01` stopped showed alternating successful and failed requests.
+
+  NGINX logs showed entries such as:
+
+  ```text
+  status: 200
+  upstream_status: "502, 200"
+  ```
+
+  They also showed:
+
+  ```text
+  status: 499
+  request_time: "1.999"
+  ```
+
+* **Failed attempt and what changed your thinking:**
+  Initially, the failures suggested that NGINX was not retrying requests on the healthy backend. Reviewing the configuration showed:
+
+  ```nginx
+  proxy_next_upstream off;
+  ```
+
+  This explained why a failed upstream request was not being retried.
+
+  After enabling failover, the manual test still showed some failures. However, the NGINX logs now showed `"502, 200"`, proving that NGINX was successfully retrying the same request on `app-02`.
+
+  The `499` responses had a request time of almost exactly `2s`, which matched the failure test's:
+
+  ```python
+  REQUEST_TIMEOUT = 2
+  ```
+
+  This changed the diagnosis: the remaining failures were caused by the test client timing out before NGINX could complete the failover, rather than by NGINX failing to fail over.
+
+* **Root cause:**
+  Two issues contributed to the failed test:
+
+  1. NGINX had `proxy_next_upstream off`, preventing upstream failover.
+  2. The failure test client timeout was only `2s`, which was too close to NGINX's `proxy_connect_timeout 2s` and did not leave enough time for failover to complete.
+
+* **Fix:**
+  Updated the NGINX upstream configuration to enable failure tracking and failover:
+
+  ```nginx
+  upstream application_pool {
+      server app-01:8080 max_fails=3 fail_timeout=5s;
+      server app-02:8080 max_fails=3 fail_timeout=5s;
+  }
+
+  proxy_connect_timeout 2s;
+  proxy_read_timeout 3s;
+  proxy_next_upstream error timeout;
+  ```
+
+  Updated the failure test client timeout from `2s` to `5s` so the test remains bounded while allowing NGINX enough time to fail over.
+
+* **Retest evidence:**
+
+  ```text
+  Starting backend failure and recovery test...
+
+  [PASS] Stopped app-01
+  [PASS] Confirmed app-01 is stopped
+
+  During failure: 10 successful requests, 0 failed requests
+  [PASS] Traffic continued through app-02 while app-01 was stopped
+
+  Starting recovery test...
+  [PASS] Started app-01
+  [INFO] Waiting for app-01 to become healthy...
+  [PASS] app-01 is healthy
+
+  After recovery: 10 successful requests, 0 failed requests
+  [PASS] Recovered traffic reached app-01
+
+  Failure and recovery test passed.
+  ```
+
+  NGINX logs also provided direct evidence of failover through:
+
+  ```text
+  upstream_status: "502, 200"
+  ```
+
+  meaning the request first failed against one upstream and then succeeded through the other.
+
+* **Related commit:**
+  `test: verify backend recovery after failure`
+
+* **Remaining uncertainty:**
+  Failover and recovery were verified using sequential requests and a single backend failure. Concurrent traffic, high-load behavior, and other failure scenarios such as Redis/PostgreSQL failures were not tested.
+
+
+
+
+
 <!--
 Keep chronological entries. Copy this block for each meaningful investigation.
 
