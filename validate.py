@@ -86,6 +86,71 @@ def check_instance():
 
 
 
+def check_records():
+    url = "http://127.0.0.1:8080/records"
+    title = f"validation-{time.time_ns()}"
+
+    create_result = subprocess.run(
+        [
+            "curl", "-sS", "--max-time", "2",
+            "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "-d", json.dumps({"title": title}),
+            "-w", "\n%{http_code}",
+            url,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    if create_result.returncode != 0:
+        print("[FAIL] POST /records request failed")
+        return 1
+
+    lines = create_result.stdout.strip().splitlines()
+    status = lines[-1] if lines else ""
+
+    if status != "201":
+        print(f"[FAIL] POST /records returned {status}, expected 201")
+        return 1
+
+    try:
+        data = json.loads("\n".join(lines[:-1]))
+    except json.JSONDecodeError:
+        print("[FAIL] POST /records returned invalid JSON")
+        return 1
+
+    if data.get("record", {}).get("title") != title:
+        print("[FAIL] POST /records did not return the created record")
+        return 1
+
+    get_result = subprocess.run(
+        ["curl", "-sS", "--max-time", "2", url],
+        capture_output=True,
+        text=True,
+    )
+
+    if get_result.returncode != 0:
+        print("[FAIL] GET /records request failed")
+        return 1
+
+    try:
+        data = json.loads(get_result.stdout)
+    except json.JSONDecodeError:
+        print("[FAIL] GET /records returned invalid JSON")
+        return 1
+
+    records = data.get("records", [])
+
+    if any(record.get("title") == title for record in records):
+        print("[PASS] /records can create and read PostgreSQL records")
+        return 0
+
+    print("[FAIL] Created record was not found by GET /records")
+    return 1
+
+
+
 def check_services():
     failed = 0
 
@@ -119,7 +184,7 @@ def main():
     failed += check_endpoint("/health")
     failed += check_endpoint("/ready")
     failed += check_instance()
-
+    failed += check_records()
         
     print()
     if failed == 0:
