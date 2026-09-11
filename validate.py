@@ -151,6 +151,56 @@ def check_records():
 
 
 
+def check_counter():
+    url = "http://127.0.0.1:8080/counter"
+
+    first_result = subprocess.run(
+        ["curl", "-sS", "--max-time", "2", url],
+        capture_output=True,
+        text=True,
+    )
+
+    if first_result.returncode != 0:
+        print("[FAIL] First GET /counter request failed")
+        return 1
+
+    try:
+        first_data = json.loads(first_result.stdout)
+        first_value = first_data["counter"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        print("[FAIL] First /counter response is invalid")
+        return 1
+
+    second_result = subprocess.run(
+        ["curl", "-sS", "--max-time", "2", url],
+        capture_output=True,
+        text=True,
+    )
+
+    if second_result.returncode != 0:
+        print("[FAIL] Second GET /counter request failed")
+        return 1
+
+    try:
+        second_data = json.loads(second_result.stdout)
+        second_value = second_data["counter"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        print("[FAIL] Second /counter response is invalid")
+        return 1
+
+    if second_value == first_value + 1:
+        print("[PASS] /counter increments correctly using Redis")
+        return 0
+
+    print(
+        f"[FAIL] /counter did not increment correctly: "
+        f"{first_value} -> {second_value}"
+    )
+    return 1
+
+
+
+
 def check_services():
     failed = 0
 
@@ -185,7 +235,9 @@ def main():
     failed += check_endpoint("/ready")
     failed += check_instance()
     failed += check_records()
-        
+    failed += check_counter()
+    
+    
     print()
     if failed == 0:
         print("Validation passed.")
