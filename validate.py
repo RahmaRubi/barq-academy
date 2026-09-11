@@ -35,6 +35,29 @@ def wait_for_http(url, timeout=30):
 
 
 
+
+def check_endpoint(path, expected_status=200):
+    url = f"http://127.0.0.1:8080{path}"
+
+    result = subprocess.run(
+        ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+         "--max-time", "2", url],
+        capture_output=True,
+        text=True,
+    )
+
+    status = result.stdout.strip()
+
+    if status == str(expected_status):
+        print(f"[PASS] GET {path} returns {status}")
+        return 0
+
+    print(f"[FAIL] GET {path} returned {status}, expected {expected_status}")
+    return 1
+
+
+
+
 def check_services():
     failed = 0
 
@@ -62,6 +85,13 @@ def main():
     else:
         print("[FAIL] NGINX /health did not become ready within 30 seconds")
         failed += 1
+    
+    
+    failed += check_endpoint("/")
+    failed += check_endpoint("/health")
+    failed += check_endpoint("/ready")
+  
+    
         
     print()
     if failed == 0:
