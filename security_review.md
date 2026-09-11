@@ -41,6 +41,43 @@
 
 
 
+### Entry3 Hardcoded PostgreSQL Password
+
+**Risk and evidence:**
+The PostgreSQL password was hardcoded directly in `docker-compose.yml` under `POSTGRES_PASSWORD`. This exposes a database credential in the repository configuration and creates a risk of accidental disclosure through source control, repository sharing, logs, or configuration inspection.
+
+**Impact:**
+Anyone with access to the repository could obtain the database credential and potentially authenticate to PostgreSQL if network access is available. Reusing the same credential across environments could also increase the impact of a credential leak.
+
+**Implemented fix / commit:**
+Moved the PostgreSQL credentials out of `docker-compose.yml` into a local environment file (`config/postgres.env`) and added the file to `.gitignore` so it is not tracked by Git.
+
+**Production follow-up:**
+Use a dedicated secrets-management solution such as Docker/Kubernetes Secrets, a cloud secret manager, or another approved production secrets store. Credentials should be rotated regularly and should never be committed to source control.
+
+**How to verify:**
+
+1. Confirm that `docker-compose.yml` no longer contains the actual PostgreSQL password.
+2. Confirm that the secret file is ignored:
+
+   ```bash
+   git check-ignore -v config/postgres.env
+   ```
+3. Confirm the secret is not tracked:
+
+   ```bash
+   git ls-files config/postgres.env
+   ```
+
+   The command should return no output.
+4. Start the environment and verify PostgreSQL becomes healthy:
+
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
+5. Verify the application can still reach PostgreSQL through its normal `/ready` endpoint.
+
 
 
 
