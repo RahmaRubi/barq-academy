@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Build and validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Create CI environment file
+        run: |
+          mkdir -p config
+          cat > config/app.env <<'EOF'
+          DATABASE_URL=postgresql://barq_app:BarqCIOnly_7qN2vK8c@postgres:5432/barq_tasks
+          REDIS_URL=redis://redis:6379/0
+          POSTGRES_PASSWORD=BarqCIOnly_7qN2vK8c
+          EOF
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+      - name: Build application images
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Show service status
+        run: docker compose ps
+
+      - name: Wait for application readiness
+        run: |
+          for i in {1..30}; do
+            if curl -fsS --max-time 2 http://127.0.0.1:8080/ready > /dev/null; then
+              echo "Application is ready"
+              exit 0
+            fi
+
+            echo "Waiting for application readiness... ($i/30)"
+            sleep 2
+          done
+
+          echo "Application did not become ready"
+          docker compose ps
+          docker compose logs --no-color
+          exit 1
+
+      - name: Run validation
+        run: python3 validate.py
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
